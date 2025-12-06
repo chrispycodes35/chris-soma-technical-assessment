@@ -1,9 +1,16 @@
 "use client"
-import { Todo } from '@prisma/client';
 import { useState, useEffect } from 'react';
+
+type Todo = {
+  id: number;
+  title: string;
+  createdAt: Date | string;
+  dueDate: Date | string | null;
+};
 
 export default function Home() {
   const [newTodo, setNewTodo] = useState('');
+  const [dueDate, setDueDate] = useState('');
   const [todos, setTodos] = useState([]);
 
   useEffect(() => {
@@ -26,9 +33,10 @@ export default function Home() {
       await fetch('/api/todos', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: newTodo }),
+        body: JSON.stringify({ title: newTodo, dueDate: dueDate || null }),
       });
       setNewTodo('');
+      setDueDate('');
       fetchTodos();
     } catch (error) {
       console.error('Failed to add todo:', error);
@@ -59,7 +67,12 @@ export default function Home() {
             onChange={(e) => setNewTodo(e.target.value)}
           
           />
-          <input type="date" />
+          <input
+            type="date"
+            className="p-3 border-l border-gray-300 focus:outline-none text-gray-700"
+            value={dueDate}
+            onChange={(e) => setDueDate(e.target.value)}
+          />
           <button
             onClick={handleAddTodo}
             className="bg-white text-indigo-600 p-3 rounded-r-full hover:bg-gray-100 transition duration-300"
@@ -68,33 +81,57 @@ export default function Home() {
           </button>
         </div>
         <ul>
-          {todos.map((todo:Todo) => (
-            <li
-              key={todo.id}
-              className="flex justify-between items-center bg-white bg-opacity-90 p-4 mb-4 rounded-lg shadow-lg"
-            >
-              <span className="text-gray-800">{todo.title}</span>
-              <button
-                onClick={() => handleDeleteTodo(todo.id)}
-                className="text-red-500 hover:text-red-700 transition duration-300"
+          {todos.map((todo:Todo) => {
+            // Compare dates at midnight to check if past due
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const due = todo.dueDate ? new Date(todo.dueDate) : null;
+            if (due) due.setHours(0, 0, 0, 0);
+            const isPastDue = due && due < today;
+            
+            const formattedDate = todo.dueDate 
+              ? new Date(todo.dueDate).toLocaleDateString('en-US', { 
+                  month: 'short', 
+                  day: 'numeric', 
+                  year: 'numeric' 
+                })
+              : null;
+            
+            return (
+              <li
+                key={todo.id}
+                className="flex justify-between items-center bg-white bg-opacity-90 p-4 mb-4 rounded-lg shadow-lg"
               >
-                {/* Delete Icon */}
-                <svg
-                  className="w-6 h-6"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
+                <div className="flex flex-col">
+                  <span className="text-gray-800">{todo.title}</span>
+                  {formattedDate && (
+                    <span className={`text-sm mt-1 ${isPastDue ? 'text-red-600 font-semibold' : 'text-gray-500'}`}>
+                      Due: {formattedDate}
+                    </span>
+                  )}
+                </div>
+                <button
+                  onClick={() => handleDeleteTodo(todo.id)}
+                  className="text-red-500 hover:text-red-700 transition duration-300"
                 >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                </svg>
-              </button>
-            </li>
-          ))}
+                  {/* Delete Icon */}
+                  <svg
+                    className="w-6 h-6"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                </button>
+              </li>
+            );
+          })}
         </ul>
       </div>
     </div>
